@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Detected alert events (gate crossings, phase flips). Append-only, written
+    // by the server via the Admin SDK (which bypasses these rules). All fans read
+    // the same feed via onSnapshot.
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Operator-set closed gates. Written by the server (Admin SDK); readable by
+    // all so the map/route can exclude closed gates.
+    match /gates/closed {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Other gates/* docs (future) — default deny.
+    match /gates/{doc} {
+      allow read, write: if false;
+    }
+
+    // Server-internal last-seen gate status, used for crossing detection.
+    // Clients don't read this directly.
+    match /gateState/{doc} {
+      allow read, write: if false;
+    }
+
+    // Per-fan profile (Phase 2: ticket binding). Owner-only.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Per-gate route-request aggregates for the organizer view (Phase 6).
+    // Server-written; readable by all (the /ops page is read-only).
+    match /stats/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
