@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 // Lightweight i18n for the UI chrome (the chat *output* is already multilingual
 // via Gemini; this closes the theme by localizing the chrome itself). EN + ES
@@ -42,9 +42,15 @@ const STRINGS: Record<Lang, Dict> = {
     "map.routeHere": "Route here",
     "map.fromHere": "From here",
     "map.you": "You",
+    "map.zoomIn": "Zoom in",
+    "map.zoomOut": "Zoom out",
+    "map.reset": "Reset view",
+    "map.closed": "closed",
+    "map.dismiss": "Close",
     "audio.read": "Read aloud",
     "audio.stop": "Stop",
     "lang.label": "Language",
+    "chat.composerLabel": "Ask the navigator",
   },
   es: {
     "header.subtitle":
@@ -74,9 +80,15 @@ const STRINGS: Record<Lang, Dict> = {
     "map.routeHere": "Ruta aquí",
     "map.fromHere": "Desde aquí",
     "map.you": "Tú",
+    "map.zoomIn": "Acercar",
+    "map.zoomOut": "Alejar",
+    "map.reset": "Restablecer vista",
+    "map.closed": "cerrada",
+    "map.dismiss": "Cerrar",
     "audio.read": "Leer en voz alta",
     "audio.stop": "Detener",
     "lang.label": "Idioma",
+    "chat.composerLabel": "Pregunta al navegador",
   },
 };
 
@@ -126,6 +138,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   };
+
+  // Keep <html lang> in sync so screen readers pronounce content in the chosen
+  // language. Without this, switching to Spanish leaves <html lang="en">.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const value: I18nValue = {
     lang,

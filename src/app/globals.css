@@ -184,3 +184,37 @@ body {
   fill: rgba(45, 212, 191, 0.16);
   stroke: rgba(45, 212, 191, 0.55);
 }
+
+/* Visible keyboard focus for the SVG map controls (nodes, popover actions,
+   zoom buttons) and the primary button — these can't rely on Tailwind's
+   focus:ring and were previously pointer-only. */
+.map-btn:focus-visible,
+g[role="button"]:focus-visible,
+.btn-primary:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Screen-reader-only text (e.g. the "Thinking…" label on the chat indicator). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion: kill the remaining transitions (the live-dot + typing-dot
+   animations are already gated above; these hover/press transitions weren't). */
+@media (prefers-reduced-motion: reduce) {
+  .card-hover,
+  .btn-primary,
+  .map-btn rect {
+    transition: none;
+  }
+}

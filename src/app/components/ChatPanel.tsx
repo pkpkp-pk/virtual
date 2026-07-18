@@ -22,7 +22,17 @@ export default function ChatPanel({ chat }: ChatPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      {/* Live region: new messages are announced to SR users as they appear.
+          aria-relevant="additions" (NOT "text") — including "text" would
+          re-announce every partial mutation of the streaming assistant message,
+          speaking overlapping fragments on each token. "additions" announces a
+          message once when it's added, not on every text update. */}
+      <div
+        className="flex-1 space-y-3 overflow-y-auto pr-1"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm text-slate-400">{t("chat.intro")}</p>
@@ -77,6 +87,10 @@ export default function ChatPanel({ chat }: ChatPanelProps) {
           );
         })}
         {loading && messages[messages.length - 1]?.text === "" && (
+          // No nested role="status"/aria-live here: this indicator is a new
+          // child of the role="log" aria-relevant="additions" container above,
+          // which announces the added subtree (incl. the sr-only "Thinking…")
+          // once. A nested live region would double-announce it.
           <div className="flex gap-2.5">
             <div
               className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-slate-900"
@@ -86,9 +100,10 @@ export default function ChatPanel({ chat }: ChatPanelProps) {
               ✦
             </div>
             <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-slate-800/60 px-4 py-3 ring-1 ring-white/5">
-              <span className="typing-dot" style={{ animationDelay: "0ms" }} />
-              <span className="typing-dot" style={{ animationDelay: "150ms" }} />
-              <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+              <span className="typing-dot" style={{ animationDelay: "0ms" }} aria-hidden />
+              <span className="typing-dot" style={{ animationDelay: "150ms" }} aria-hidden />
+              <span className="typing-dot" style={{ animationDelay: "300ms" }} aria-hidden />
+              <span className="sr-only">{t("chat.thinking")}</span>
             </div>
           </div>
         )}
@@ -109,6 +124,7 @@ export default function ChatPanel({ chat }: ChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={t("chat.placeholder")}
+            aria-label={t("chat.composerLabel")}
             className="flex-1 rounded-xl bg-slate-900/80 px-3.5 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-teal-400/60"
           />
           <button

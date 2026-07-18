@@ -153,7 +153,7 @@ function Legend({ t }: { t: (k: string) => string }) {
     // Box sized to actually enclose the title + 4 swatch rows (the old fixed
     // height cut off the last row), and raised off the bottom edge so it doesn't
     // crowd the gate-control panel beneath the map.
-    <g transform={`translate(${W - PAD - 120} ${H - PAD - 112})`}>
+    <g transform={`translate(${W - PAD - 120} ${H - PAD - 112})`} aria-hidden>
       <rect x={-10} y={-8} width={152} height={108} rx={8} fill="#0b1220" opacity={0.88} stroke="#1f2937" />
       <text x={0} y={12} fontSize={11} fontWeight={700} fill="#cbd5e1">{t("map.legend")}</text>
       {items.map((it, i) => (
@@ -299,10 +299,27 @@ export default function StadiumMap({
     const isSel = selectedId === n.id;
     const isAlert = alertSet.has(n.id);
 
+    // Keyboard-accessible + screen-reader-named: each node is a real button so
+    // keyboard users can tab to it and press Enter/Space to select (same as a
+    // click), and SR users hear the node name + load instead of a silent shape.
+    const loadDesc =
+      n.type === "gate" || n.type === "section" || n.type === "transit"
+        ? `, ${Math.round(pct * 100)}% load`
+        : "";
     const common = {
+      role: "button" as const,
+      tabIndex: 0,
+      "aria-label": `${n.label}${loadDesc}${isClosed ? `, ${t("map.closed")}` : ""}`,
       onClick: (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!draggedRef.current) onNodeSelect?.(n.id);
+      },
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          onNodeSelect?.(n.id);
+        }
       },
       style: { cursor: onNodeSelect ? "pointer" : "default" },
     };
@@ -435,18 +452,39 @@ export default function StadiumMap({
         <text x={dx + 10} y={dy + 18} fontSize={12} fontWeight={700} fill="#e2e8f0">{selected.label}</text>
         <text x={dx + 10} y={dy + 34} fontSize={10} fill="#94a3b8">{pct}% load · {occ} ppl</text>
         {onRouteTo && (
-          <g style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onRouteTo(selected.id); }}>
+          <g
+            role="button"
+            tabIndex={0}
+            aria-label={`${t("map.routeHere")} ${selected.label}`}
+            style={{ cursor: "pointer" }}
+            onClick={(e) => { e.stopPropagation(); onRouteTo(selected.id); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onRouteTo(selected.id); } }}
+          >
             <rect x={dx + 8} y={dy + 42} width={72} height={24} rx={5} fill="#2dd4bf" />
             <text x={dx + 44} y={dy + 58} textAnchor="middle" fontSize={11} fontWeight={700} fill="#0b1220">{t("map.routeHere")}</text>
           </g>
         )}
         {onRouteFrom && (
-          <g style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onRouteFrom(selected.id); }}>
+          <g
+            role="button"
+            tabIndex={0}
+            aria-label={`${t("map.fromHere")} ${selected.label}`}
+            style={{ cursor: "pointer" }}
+            onClick={(e) => { e.stopPropagation(); onRouteFrom(selected.id); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onRouteFrom(selected.id); } }}
+          >
             <rect x={dx + 88} y={dy + 42} width={72} height={24} rx={5} fill="#334155" stroke="#475569" />
             <text x={dx + 124} y={dy + 58} textAnchor="middle" fontSize={11} fontWeight={700} fill="#e2e8f0">{t("map.fromHere")}</text>
           </g>
         )}
-        <g style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onNodeSelect?.(null); }}>
+        <g
+          role="button"
+          tabIndex={0}
+          aria-label={t("map.dismiss")}
+          style={{ cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); onNodeSelect?.(null); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onNodeSelect?.(null); } }}
+        >
           <text x={dx + cardW - 12} y={dy + 16} textAnchor="middle" fontSize={12} fill="#94a3b8">✕</text>
         </g>
       </g>
@@ -459,8 +497,8 @@ export default function StadiumMap({
       viewBox={`0 0 ${W} ${H}`}
       className="h-full w-full touch-none select-none"
       style={{ cursor: view.scale > 1 ? "grab" : "default" }}
-      role="img"
-      aria-label="MetLife Stadium crowd map with the recommended route (scroll to zoom, drag to pan)"
+      role="group"
+      aria-label="MetLife Stadium crowd map with the recommended route. Tab to a node and press Enter to select it; use the zoom buttons to zoom."
       onClick={() => {
         if (!draggedRef.current) onNodeSelect?.(null);
       }}
@@ -475,26 +513,28 @@ export default function StadiumMap({
           <stop offset="100%" stopColor="#02040a" stopOpacity={0.9} />
         </radialGradient>
       </defs>
-      <rect x={0} y={0} width={W} height={H} fill="#070d18" rx={16} />
+      <rect x={0} y={0} width={W} height={H} fill="#070d18" rx={16} aria-hidden />
       {/* Subtle radial vignette frames the bowl. */}
-      <rect x={0} y={0} width={W} height={H} rx={16} fill="url(#mapVignette)" />
+      <rect x={0} y={0} width={W} height={H} rx={16} fill="url(#mapVignette)" aria-hidden />
 
-      {/* Pan/zoom group: all map content scales + pans together. */}
+      {/* Pan/zoom group: all map content scales + pans together. Decorative
+          groups (bowl, edges, route lines) are aria-hidden so AT only speaks
+          the interactive node buttons + their labels, not the geometry. */}
       <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
         <StadiumBowl proj={proj} />
-        <g stroke="#243044" strokeWidth={2} opacity={0.85}>
+        <g stroke="#243044" strokeWidth={2} opacity={0.85} aria-hidden>
           {EDGE_LIST.map((e, i) => (
             <line key={i} x1={proj.x(e.from)} y1={proj.y(e.from)} x2={proj.x(e.to)} y2={proj.y(e.to)} />
           ))}
         </g>
         {runnerUpPath && (
-          <polyline points={pathPoints(runnerUpPath, proj)} fill="none" stroke="#94a3b8" strokeWidth={3} strokeDasharray="8 6" opacity={0.55} />
+          <polyline points={pathPoints(runnerUpPath, proj)} fill="none" stroke="#94a3b8" strokeWidth={3} strokeDasharray="8 6" opacity={0.55} aria-hidden />
         )}
         {winnerPath && (
-          <>
+          <g aria-hidden>
             <polyline points={pathPoints(winnerPath, proj)} fill="none" stroke="#2dd4bf" strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" />
             <RouteArrows path={winnerPath} proj={proj} />
-          </>
+          </g>
         )}
         {NODE_LIST.map(nodeShape)}
         {popover}
@@ -503,15 +543,39 @@ export default function StadiumMap({
       {/* Fixed overlays (don't scale/pan). */}
       <Legend t={t} />
       <g transform={`translate(${W - 44} ${PAD})`}>
-        <g className="map-btn" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); zoomBy(1.3); }}>
+        <g
+          className="map-btn"
+          role="button"
+          tabIndex={0}
+          aria-label={t("map.zoomIn")}
+          style={{ cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); zoomBy(1.3); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); zoomBy(1.3); } }}
+        >
           <rect x={0} y={0} width={28} height={28} rx={6} fill="#0b1220" stroke="#1f2937" />
           <text x={14} y={20} textAnchor="middle" fontSize={18} fontWeight={700} fill="#e2e8f0">+</text>
         </g>
-        <g className="map-btn" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); zoomBy(1 / 1.3); }}>
+        <g
+          className="map-btn"
+          role="button"
+          tabIndex={0}
+          aria-label={t("map.zoomOut")}
+          style={{ cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); zoomBy(1 / 1.3); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); zoomBy(1 / 1.3); } }}
+        >
           <rect x={0} y={34} width={28} height={28} rx={6} fill="#0b1220" stroke="#1f2937" />
           <text x={14} y={55} textAnchor="middle" fontSize={20} fill="#e2e8f0">−</text>
         </g>
-        <g className="map-btn" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); reset(); }}>
+        <g
+          className="map-btn"
+          role="button"
+          tabIndex={0}
+          aria-label={t("map.reset")}
+          style={{ cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); reset(); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); reset(); } }}
+        >
           <rect x={0} y={68} width={28} height={28} rx={6} fill="#0b1220" stroke="#1f2937" />
           <text x={14} y={88} textAnchor="middle" fontSize={13} fill="#e2e8f0">⟲</text>
         </g>
